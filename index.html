@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>서울 OSM 지도 - 도로 및 건물</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 320px;
+        }
+
+        .info-panel h2 {
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .layer-controls {
+            margin: 15px 0;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            padding: 5px;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .layer-item:hover {
+            background: #f8f9fa;
+        }
+
+        .layer-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .layer-item label {
+            cursor: pointer;
+            flex: 1;
+            font-size: 14px;
+            color: #34495e;
+        }
+
+        .layer-count {
+            font-size: 11px;
+            color: #95a5a6;
+            margin-left: 5px;
+        }
+
+        .legend {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .legend h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 25px;
+            height: 3px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+            display: block;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            display: block;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            display: block;
+        }
+
+        .progress {
+            margin-top: 8px;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="info-panel">
+        <h2>🗺️ 서울 OSM 지도</h2>
+
+        <div class="layer-controls">
+            <div class="layer-item">
+                <input type="checkbox" id="layer-roads" checked>
+                <label for="layer-roads">🛣️ 도로 <span class="layer-count" id="count-roads"></span></label>
+            </div>
+            <div class="layer-item">
+                <input type="checkbox" id="layer-buildings" checked>
+                <label for="layer-buildings">🏢 건물 <span class="layer-count" id="count-buildings"></span></label>
+            </div>
+            <div class="layer-item">
+                <input type="checkbox" id="layer-railways">
+                <label for="layer-railways">🚆 철도 <span class="layer-count" id="count-railways"></span></label>
+            </div>
+            <div class="layer-item">
+                <input type="checkbox" id="layer-waterways">
+                <label for="layer-waterways">💧 수로 <span class="layer-count" id="count-waterways"></span></label>
+            </div>
+            <div class="layer-item">
+                <input type="checkbox" id="layer-landuse">
+                <label for="layer-landuse">🌳 토지이용 <span class="layer-count" id="count-landuse"></span></label>
+            </div>
+            <div class="layer-item">
+                <input type="checkbox" id="layer-points">
+                <label for="layer-points">📍 관심지점 <span class="layer-count" id="count-points"></span></label>
+            </div>
+        </div>
+
+        <div class="legend">
+            <h3>도로 범례</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e74c3c; height: 4px;"></div>
+                <span>주요 간선도로</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f39c12; height: 3px;"></div>
+                <span>보조 간선도로</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #3498db; height: 2px;"></div>
+                <span>일반 도로</span>
+            </div>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div class="progress" style="display: none;">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Shapefile.js -->
+    <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+
+    <script>
+        // 지도 초기화
+        const map = L.map('map').setView([37.5825, 126.819], 14);
+
+        // OpenStreetMap 타일
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
+        }).addTo(map);
+
+        // 레이어 그룹
+        const layers = {
+            roads: L.layerGroup(),
+            buildings: L.layerGroup(),
+            railways: L.layerGroup(),
+            waterways: L.layerGroup(),
+            landuse: L.layerGroup(),
+            points: L.layerGroup()
+        };
+
+        // 상태 표시
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+
+        function updateProgress(percent) {
+            document.querySelector('.progress').style.display = percent > 0 && percent < 100 ? 'block' : 'none';
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+
+        // 스타일 함수
+        function getRoadStyle(props) {
+            const highway = props.type || props.highway || '';
+            const styles = {
+                'motorway': { color: '#e74c3c', weight: 5, opacity: 0.9 },
+                'trunk': { color: '#e74c3c', weight: 4, opacity: 0.8 },
+                'primary': { color: '#e74c3c', weight: 3.5, opacity: 0.8 },
+                'secondary': { color: '#f39c12', weight: 3, opacity: 0.75 },
+                'tertiary': { color: '#3498db', weight: 2.5, opacity: 0.7 },
+                'residential': { color: '#95a5a6', weight: 2, opacity: 0.6 },
+                'service': { color: '#bdc3c7', weight: 1.5, opacity: 0.5 },
+                'default': { color: '#7f8c8d', weight: 2, opacity: 0.6 }
+            };
+            return styles[highway] || styles['default'];
+        }
+
+        function getBuildingStyle() {
+            return {
+                color: '#34495e',
+                weight: 1,
+                fillColor: '#95a5a6',
+                fillOpacity: 0.4
+            };
+        }
+
+        function getRailwayStyle() {
+            return { color: '#e74c3c', weight: 3, opacity: 0.7, dashArray: '10, 5' };
+        }
+
+        function getWaterwayStyle() {
+            return { color: '#3498db', weight: 2, opacity: 0.7 };
+        }
+
+        function getLanduseStyle(props) {
+            const colors = {
+                'residential': '#ffeaa7',
+                'commercial': '#fab1a0',
+                'industrial': '#dfe6e9',
+                'forest': '#55efc4',
+                'grass': '#a8e6cf',
+                'default': '#dfe6e9'
+            };
+            const landuse = props.type || props.landuse || 'default';
+            return {
+                color: '#95a5a6',
+                weight: 1,
+                fillColor: colors[landuse] || colors['default'],
+                fillOpacity: 0.3
+            };
+        }
+
+        // GeoJSON 로드 함수
+        function loadGeoJSON(geojson, layerName, styleFunc) {
+            const layer = layers[layerName];
+
+            L.geoJSON(geojson, {
+                style: styleFunc,
+                pointToLayer: function(feature, latlng) {
+                    return L.circleMarker(latlng, {
+                        radius: 5,
+                        fillColor: '#3498db',
+                        color: '#fff',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
+                },
+                onEachFeature: function(feature, layer) {
+                    if (feature.properties) {
+                        let popup = '<div style="font-size: 13px; max-width: 200px;">';
+                        const props = feature.properties;
+
+                        if (props.name) popup += `<strong>${props.name}</strong><br>`;
+                        if (props.type) popup += `유형: ${props.type}<br>`;
+                        if (props.highway) popup += `도로: ${props.highway}<br>`;
+
+                        popup += '</div>';
+                        layer.bindPopup(popup);
+                    }
+                }
+            }).addTo(layer);
+
+            const count = geojson.features ? geojson.features.length : 0;
+            document.getElementById('count-' + layerName).textContent = `(${count})`;
+
+            return count;
+        }
+
+        // Shapefile 로드
+        async function loadShapefile(name, styleFunc) {
+            try {
+                const files = ['shp', 'dbf', 'prj'];
+                const buffers = {};
+
+                for (const ext of files) {
+                    const response = await fetch(`shape/${name}.${ext}`);
+                    if (!response.ok) throw new Error(`Failed to load ${name}.${ext}`);
+                    buffers[ext] = await response.arrayBuffer();
+                }
+
+                const geojson = await shp.parseShp(buffers.shp, buffers.prj);
+
+                if (buffers.dbf) {
+                    const dbfData = await shp.parseDbf(buffers.dbf);
+                    geojson.features.forEach((feature, i) => {
+                        if (dbfData[i]) feature.properties = dbfData[i];
+                    });
+                }
+
+                const count = loadGeoJSON(geojson, name, styleFunc);
+                console.log(`✓ ${name}: ${count} features loaded`);
+
+                return count;
+
+            } catch (error) {
+                console.error(`✗ Error loading ${name}:`, error);
+                return 0;
+            }
+        }
+
+        // 레이어 토글
+        Object.keys(layers).forEach(name => {
+            const checkbox = document.getElementById('layer-' + name);
+            if (checkbox) {
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        layers[name].addTo(map);
+                    } else {
+                        map.removeLayer(layers[name]);
+                    }
+                });
+            }
+        });
+
+        // 데이터 로드
+        async function loadAllData() {
+            showStatus('데이터 로딩 중...', 'loading');
+            updateProgress(0);
+
+            const dataLayers = [
+                { name: 'roads', style: getRoadStyle },
+                { name: 'buildings', style: getBuildingStyle },
+                { name: 'railways', style: getRailwayStyle },
+                { name: 'waterways', style: getWaterwayStyle },
+                { name: 'landuse', style: getLanduseStyle },
+                { name: 'points', style: null }
+            ];
+
+            let loaded = 0;
+            let totalFeatures = 0;
+
+            for (const layer of dataLayers) {
+                const count = await loadShapefile(layer.name, layer.style);
+                totalFeatures += count;
+                loaded++;
+                updateProgress((loaded / dataLayers.length) * 100);
+            }
+
+            // 기본 레이어 표시
+            layers.roads.addTo(map);
+            layers.buildings.addTo(map);
+
+            showStatus(`✓ 로드 완료! 총 ${totalFeatures.toLocaleString()}개 feature`, 'success');
+            updateProgress(100);
+            setTimeout(() => updateProgress(0), 2000);
+
+            console.log('All data loaded successfully!');
+        }
+
+        // 축척 컨트롤
+        L.control.scale({ imperial: false, metric: true }).addTo(map);
+
+        // 시작
+        loadAllData();
+    </script>
+</body>
+</html>
