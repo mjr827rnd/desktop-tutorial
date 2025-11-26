@@ -147,6 +147,11 @@
             width: 0%;
             transition: width 0.3s;
         }
+
+        /* 레이어 컨트롤 스타일 개선 */
+        .leaflet-control-layers {
+            font-family: 'Malgun Gothic', sans-serif;
+        }
     </style>
 </head>
 <body>
@@ -213,11 +218,31 @@
         // 지도 초기화
         const map = L.map('map').setView([37.5825, 126.819], 14);
 
-        // OpenStreetMap 타일
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19
-        }).addTo(map);
+        // 베이스맵 정의
+        const baseMaps = {
+            '🗺️ OpenStreetMap': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 19
+            }),
+            '🛰️ 위성 지도': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri',
+                maxZoom: 18
+            }),
+            '🌓 흑백 지도': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+                maxZoom: 19
+            }),
+            '🌙 다크 모드': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+                maxZoom: 19
+            }),
+            '❌ 베이스맵 없음': L.tileLayer('', {
+                attribution: ''
+            })
+        };
+
+        // 기본 베이스맵 추가
+        baseMaps['🗺️ OpenStreetMap'].addTo(map);
 
         // 레이어 그룹
         const layers = {
@@ -228,6 +253,22 @@
             landuse: L.layerGroup(),
             points: L.layerGroup()
         };
+
+        // 오버레이 레이어 (체크박스로 제어되는 레이어)
+        const overlayMaps = {
+            '🛣️ 도로': layers.roads,
+            '🏢 건물': layers.buildings,
+            '🚆 철도': layers.railways,
+            '💧 수로': layers.waterways,
+            '🌳 토지이용': layers.landuse,
+            '📍 관심지점': layers.points
+        };
+
+        // 레이어 컨트롤 추가 (우측 상단)
+        L.control.layers(baseMaps, overlayMaps, {
+            position: 'topright',
+            collapsed: false
+        }).addTo(map);
 
         // 상태 표시
         function showStatus(message, type) {
@@ -361,7 +402,7 @@
             }
         }
 
-        // 레이어 토글
+        // 레이어 토글 (패널의 체크박스)
         Object.keys(layers).forEach(name => {
             const checkbox = document.getElementById('layer-' + name);
             if (checkbox) {
