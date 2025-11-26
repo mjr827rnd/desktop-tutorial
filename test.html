@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shapefile 로드 테스트</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        #map {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+            border: 2px solid #333;
+        }
+        .log {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-item {
+            padding: 5px;
+            margin: 3px 0;
+            border-left: 3px solid #ccc;
+            padding-left: 10px;
+        }
+        .log-item.success {
+            border-color: #2ecc71;
+            background: #e8f8f5;
+        }
+        .log-item.error {
+            border-color: #e74c3c;
+            background: #fadbd8;
+        }
+        .log-item.info {
+            border-color: #3498db;
+            background: #ebf5fb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Shapefile 로드 테스트</h1>
+    <div id="map"></div>
+    <div class="log" id="log"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+
+    <script>
+        const logEl = document.getElementById('log');
+
+        function log(message, type = 'info') {
+            const item = document.createElement('div');
+            item.className = 'log-item ' + type;
+            item.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            logEl.appendChild(item);
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        }
+
+        log('🚀 테스트 시작', 'info');
+
+        // 지도 초기화
+        log('📍 지도 초기화 중...', 'info');
+        const map = L.map('map').setView([37.5825, 126.819], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+        log('✓ 지도 초기화 완료', 'success');
+
+        // shapefile.js 확인
+        log('📦 shapefile.js 라이브러리: ' + (typeof shp !== 'undefined' ? '✓ 로드됨' : '✗ 없음'),
+            typeof shp !== 'undefined' ? 'success' : 'error');
+
+        // 파일 로드 테스트
+        async function testLoadFile(filename) {
+            try {
+                log(`📥 ${filename} 다운로드 시도...`, 'info');
+                const response = await fetch(`shape/${filename}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const blob = await response.blob();
+                log(`✓ ${filename} 다운로드 성공 (${(blob.size / 1024).toFixed(1)} KB)`, 'success');
+                return true;
+            } catch (error) {
+                log(`✗ ${filename} 다운로드 실패: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        async function testLoadShapefile() {
+            log('🗺️ roads shapefile 로드 테스트...', 'info');
+
+            try {
+                // 1. 파일 존재 확인
+                const files = ['roads.shp', 'roads.dbf', 'roads.prj'];
+                for (const file of files) {
+                    await testLoadFile(file);
+                }
+
+                // 2. Shapefile 파싱
+                log('🔄 Shapefile 파싱 중...', 'info');
+
+                const shpResponse = await fetch('shape/roads.shp');
+                const dbfResponse = await fetch('shape/roads.dbf');
+                const prjResponse = await fetch('shape/roads.prj');
+
+                const shpBuffer = await shpResponse.arrayBuffer();
+                const dbfBuffer = await dbfResponse.arrayBuffer();
+                const prjBuffer = await prjResponse.arrayBuffer();
+
+                log('📊 Buffer 크기: shp=' + shpBuffer.byteLength + ', dbf=' + dbfBuffer.byteLength, 'info');
+
+                const geojson = await shp.parseShp(shpBuffer, prjBuffer);
+                log(`✓ Shapefile 파싱 완료! Features: ${geojson.features.length}`, 'success');
+
+                // DBF 파싱
+                const dbfData = await shp.parseDbf(dbfBuffer);
+                geojson.features.forEach((feature, i) => {
+                    if (dbfData[i]) feature.properties = dbfData[i];
+                });
+
+                log('✓ DBF 속성 데이터 병합 완료', 'success');
+
+                // 3. 지도에 표시
+                log('🎨 지도에 표시 중...', 'info');
+                const layer = L.geoJSON(geojson, {
+                    style: { color: '#e74c3c', weight: 3, opacity: 0.7 }
+                }).addTo(map);
+
+                map.fitBounds(layer.getBounds());
+                log('✓✓✓ 모든 테스트 성공! 도로가 지도에 표시되었습니다!', 'success');
+
+            } catch (error) {
+                log('✗✗✗ 오류 발생: ' + error.message, 'error');
+                log('상세 정보: ' + error.stack, 'error');
+            }
+        }
+
+        // 테스트 시작
+        setTimeout(() => {
+            testLoadShapefile();
+        }, 1000);
+    </script>
+</body>
+</html>
