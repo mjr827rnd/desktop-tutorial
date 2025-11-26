@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>서울 공간정보 지도</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Malgun Gothic', sans-serif;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 250px;
+        }
+
+        .info-panel h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .custom-popup h3 {
+            margin: 0 0 8px 0;
+            color: #0066cc;
+        }
+
+        .custom-popup p {
+            margin: 4px 0;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="info-panel">
+        <h2>📍 서울 공간정보</h2>
+        <p>주요 랜드마크와 시설을 확인하세요</p>
+        <p style="font-size: 12px; color: #999; margin-top: 10px;">
+            마커를 클릭하면 상세정보를 볼 수 있습니다
+        </p>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // 지도 초기화 - 서울 중심 좌표
+        const map = L.map('map').setView([37.5665, 126.9780], 12);
+
+        // OpenStreetMap 타일 레이어 추가
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // 커스텀 아이콘 정의
+        const createIcon = (color) => {
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: ${color}; width: 25px; height: 25px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [25, 25],
+                iconAnchor: [12, 12]
+            });
+        };
+
+        // 서울 주요 공간정보 데이터
+        const locations = [
+            {
+                name: '서울시청',
+                coords: [37.5663, 126.9779],
+                category: '행정기관',
+                description: '서울특별시 행정의 중심',
+                color: '#ff6b6b'
+            },
+            {
+                name: '경복궁',
+                coords: [37.5796, 126.9770],
+                category: '문화재',
+                description: '조선시대 법궁, 대표적인 궁궐',
+                color: '#4ecdc4'
+            },
+            {
+                name: '남산서울타워',
+                coords: [37.5512, 126.9882],
+                category: '관광명소',
+                description: '서울의 상징적인 전망대',
+                color: '#45b7d1'
+            },
+            {
+                name: '광화문',
+                coords: [37.5759, 126.9768],
+                category: '역사유적',
+                description: '경복궁의 정문',
+                color: '#96ceb4'
+            },
+            {
+                name: '강남역',
+                coords: [37.4979, 127.0276],
+                category: '교통',
+                description: '서울 주요 교통 허브',
+                color: '#ffeaa7'
+            },
+            {
+                name: '한강공원 (여의도)',
+                coords: [37.5285, 126.9328],
+                category: '공원',
+                description: '시민 휴식 공간',
+                color: '#74b9ff'
+            },
+            {
+                name: '동대문디자인플라자',
+                coords: [37.5665, 127.0088],
+                category: '문화시설',
+                description: 'DDP, 현대적 디자인 복합문화공간',
+                color: '#a29bfe'
+            },
+            {
+                name: '코엑스',
+                coords: [37.5115, 127.0595],
+                category: '컨벤션',
+                description: '대형 전시·컨벤션센터',
+                color: '#fd79a8'
+            },
+            {
+                name: '북촌한옥마을',
+                coords: [37.5825, 126.9830],
+                category: '관광명소',
+                description: '전통 한옥이 보존된 마을',
+                color: '#55efc4'
+            },
+            {
+                name: '홍대입구',
+                coords: [37.5569, 126.9234],
+                category: '문화지구',
+                description: '젊음과 예술의 거리',
+                color: '#ff7675'
+            }
+        ];
+
+        // 마커 추가 및 팝업 설정
+        locations.forEach(location => {
+            const marker = L.marker(location.coords, {
+                icon: createIcon(location.color)
+            }).addTo(map);
+
+            const popupContent = `
+                <div class="custom-popup">
+                    <h3>${location.name}</h3>
+                    <p><strong>분류:</strong> ${location.category}</p>
+                    <p>${location.description}</p>
+                    <p style="font-size: 11px; color: #999;">
+                        좌표: ${location.coords[0].toFixed(4)}, ${location.coords[1].toFixed(4)}
+                    </p>
+                </div>
+            `;
+
+            marker.bindPopup(popupContent);
+        });
+
+        // 서울시 경계를 표시하는 원 추가 (대략적인 범위)
+        L.circle([37.5665, 126.9780], {
+            color: '#3498db',
+            fillColor: '#3498db',
+            fillOpacity: 0.05,
+            radius: 15000
+        }).addTo(map).bindPopup('서울특별시 대략적 범위');
+
+        // 축척 컨트롤 추가
+        L.control.scale({
+            imperial: false,
+            metric: true
+        }).addTo(map);
+
+        console.log('서울 공간정보 지도가 로드되었습니다.');
+        console.log(`총 ${locations.length}개의 주요 지점이 표시되었습니다.`);
+    </script>
+</body>
+</html>
