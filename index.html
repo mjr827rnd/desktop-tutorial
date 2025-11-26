@@ -2,14 +2,14 @@
 <html lang="ko">
 <!--
     서울 OSM 지도
-    Version: 2.0
-    Build: 2025-11-26 19:47 KST
-    Changes: 베이스맵 선택 기능 추가 (OpenStreetMap, 위성, 흑백, 다크모드, 없음)
+    Version: 2.1
+    Build: 2025-11-26 20:05 KST
+    Changes: 디버깅 정보 추가, shapefile 로드 상태 상세 표시
 -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>서울 OSM 지도 v2.0 - 도로 및 건물</title>
+    <title>서울 OSM 지도 v2.1 - 도로 및 건물</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -164,7 +164,7 @@
     <div class="info-panel">
         <h2>🗺️ 서울 OSM 지도</h2>
         <div style="font-size: 11px; color: #7f8c8d; margin-bottom: 10px;">
-            v2.0 | 2025-11-26 19:47 KST
+            v2.1 | 2025-11-26 20:05 KST
         </div>
 
         <div class="layer-controls">
@@ -216,9 +216,9 @@
         </div>
 
         <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 10px; color: #95a5a6;">
-            <strong>Version 2.0</strong><br>
-            빌드: 2025-11-26 19:47 KST<br>
-            변경: 베이스맵 선택 기능 추가
+            <strong>Version 2.1</strong><br>
+            빌드: 2025-11-26 20:05 KST<br>
+            변경: 디버깅 정보 추가
         </div>
     </div>
 
@@ -231,11 +231,11 @@
 
     <script>
         // 버전 정보
-        const VERSION = '2.0';
-        const BUILD_DATE = '2025-11-26 19:47 KST';
+        const VERSION = '2.1';
+        const BUILD_DATE = '2025-11-26 20:05 KST';
         console.log(`%c서울 OSM 지도 v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #3498db;');
         console.log(`빌드: ${BUILD_DATE}`);
-        console.log('변경사항: 베이스맵 선택 기능 추가');
+        console.log('변경사항: 디버깅 정보 추가, shapefile 로드 상태 상세 표시');
 
         // 지도 초기화
         const map = L.map('map').setView([37.5825, 126.819], 14);
@@ -395,13 +395,25 @@
         // Shapefile 로드
         async function loadShapefile(name, styleFunc) {
             try {
+                console.log(`📥 ${name} 로드 시작...`);
                 const files = ['shp', 'dbf', 'prj'];
                 const buffers = {};
 
                 for (const ext of files) {
+                    console.log(`  - shape/${name}.${ext} 다운로드 중...`);
                     const response = await fetch(`shape/${name}.${ext}`);
-                    if (!response.ok) throw new Error(`Failed to load ${name}.${ext}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
                     buffers[ext] = await response.arrayBuffer();
+                    console.log(`  ✓ ${name}.${ext} 완료 (${(buffers[ext].byteLength / 1024).toFixed(1)} KB)`);
+                }
+
+                console.log(`  🔄 ${name} 파싱 중...`);
+
+                // shapefile.js 라이브러리 확인
+                if (typeof shp === 'undefined') {
+                    throw new Error('shapefile.js 라이브러리가 로드되지 않았습니다!');
                 }
 
                 const geojson = await shp.parseShp(buffers.shp, buffers.prj);
@@ -414,12 +426,14 @@
                 }
 
                 const count = loadGeoJSON(geojson, name, styleFunc);
-                console.log(`✓ ${name}: ${count} features loaded`);
+                console.log(`✅ ${name}: ${count} features 로드 완료!`);
 
                 return count;
 
             } catch (error) {
-                console.error(`✗ Error loading ${name}:`, error);
+                console.error(`❌ ${name} 로드 실패:`, error.message);
+                console.error('상세:', error);
+                showStatus(`✗ ${name} 로드 실패: ${error.message}`, 'error');
                 return 0;
             }
         }
@@ -440,8 +454,22 @@
 
         // 데이터 로드
         async function loadAllData() {
+            console.log('==========================================');
+            console.log('🚀 데이터 로드 시작');
+            console.log('==========================================');
+
             showStatus('데이터 로딩 중...', 'loading');
             updateProgress(0);
+
+            // shapefile.js 확인
+            if (typeof shp === 'undefined') {
+                const errorMsg = 'shapefile.js 라이브러리 로드 실패!';
+                console.error('❌ ' + errorMsg);
+                showStatus('✗ ' + errorMsg, 'error');
+                return;
+            } else {
+                console.log('✓ shapefile.js 라이브러리 로드됨');
+            }
 
             const dataLayers = [
                 { name: 'roads', style: getRoadStyle },
@@ -454,23 +482,36 @@
 
             let loaded = 0;
             let totalFeatures = 0;
+            let successCount = 0;
 
             for (const layer of dataLayers) {
                 const count = await loadShapefile(layer.name, layer.style);
-                totalFeatures += count;
+                if (count > 0) {
+                    successCount++;
+                    totalFeatures += count;
+                }
                 loaded++;
                 updateProgress((loaded / dataLayers.length) * 100);
             }
 
             // 기본 레이어 표시
-            layers.roads.addTo(map);
-            layers.buildings.addTo(map);
+            if (successCount > 0) {
+                layers.roads.addTo(map);
+                layers.buildings.addTo(map);
+                console.log('==========================================');
+                console.log(`✅ 로드 완료: ${successCount}/${dataLayers.length} 레이어`);
+                console.log(`📊 총 ${totalFeatures.toLocaleString()}개 feature`);
+                console.log('==========================================');
+                showStatus(`✓ ${successCount}개 레이어 로드 완료! (총 ${totalFeatures.toLocaleString()}개)`, 'success');
+            } else {
+                console.error('==========================================');
+                console.error('❌ 모든 레이어 로드 실패!');
+                console.error('==========================================');
+                showStatus('✗ 데이터 로드 실패. 콘솔(F12)에서 에러 확인', 'error');
+            }
 
-            showStatus(`✓ 로드 완료! 총 ${totalFeatures.toLocaleString()}개 feature`, 'success');
             updateProgress(100);
             setTimeout(() => updateProgress(0), 2000);
-
-            console.log('All data loaded successfully!');
         }
 
         // 축척 컨트롤
