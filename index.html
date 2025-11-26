@@ -2,14 +2,14 @@
 <html lang="ko">
 <!--
     서울 OSM 지도
-    Version: 2.1
-    Build: 2025-11-26 20:05 KST
-    Changes: 디버깅 정보 추가, shapefile 로드 상태 상세 표시
+    Version: 2.2
+    Build: 2025-11-26 20:10 KST
+    Changes: shapefile 파싱 로직 수정 (GeoJSON 변환 개선)
 -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>서울 OSM 지도 v2.1 - 도로 및 건물</title>
+    <title>서울 OSM 지도 v2.2 - 도로 및 건물</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -164,7 +164,7 @@
     <div class="info-panel">
         <h2>🗺️ 서울 OSM 지도</h2>
         <div style="font-size: 11px; color: #7f8c8d; margin-bottom: 10px;">
-            v2.1 | 2025-11-26 20:05 KST
+            v2.2 | 2025-11-26 20:10 KST
         </div>
 
         <div class="layer-controls">
@@ -216,9 +216,9 @@
         </div>
 
         <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 10px; color: #95a5a6;">
-            <strong>Version 2.1</strong><br>
-            빌드: 2025-11-26 20:05 KST<br>
-            변경: 디버깅 정보 추가
+            <strong>Version 2.2</strong><br>
+            빌드: 2025-11-26 20:10 KST<br>
+            변경: shapefile 파싱 수정
         </div>
     </div>
 
@@ -231,11 +231,11 @@
 
     <script>
         // 버전 정보
-        const VERSION = '2.1';
-        const BUILD_DATE = '2025-11-26 20:05 KST';
+        const VERSION = '2.2';
+        const BUILD_DATE = '2025-11-26 20:10 KST';
         console.log(`%c서울 OSM 지도 v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #3498db;');
         console.log(`빌드: ${BUILD_DATE}`);
-        console.log('변경사항: 디버깅 정보 추가, shapefile 로드 상태 상세 표시');
+        console.log('변경사항: shapefile 파싱 로직 수정, GeoJSON 변환 개선');
 
         // 지도 초기화
         const map = L.map('map').setView([37.5825, 126.819], 14);
@@ -416,14 +416,49 @@
                     throw new Error('shapefile.js 라이브러리가 로드되지 않았습니다!');
                 }
 
-                const geojson = await shp.parseShp(buffers.shp, buffers.prj);
+                // shp.combine() 또는 shp.parseShp()의 결과를 GeoJSON 형식으로 변환
+                const geometries = await shp.parseShp(buffers.shp, buffers.prj);
+                console.log(`  📐 Geometries 타입:`, Array.isArray(geometries) ? 'Array' : typeof geometries);
+                console.log(`  📊 Geometries 개수:`, Array.isArray(geometries) ? geometries.length : 'N/A');
 
+                // DBF 파싱
+                let properties = [];
                 if (buffers.dbf) {
-                    const dbfData = await shp.parseDbf(buffers.dbf);
-                    geojson.features.forEach((feature, i) => {
-                        if (dbfData[i]) feature.properties = dbfData[i];
-                    });
+                    properties = await shp.parseDbf(buffers.dbf);
+                    console.log(`  📋 Properties 개수:`, properties.length);
                 }
+
+                // GeoJSON 구조 생성
+                const geojson = {
+                    type: 'FeatureCollection',
+                    features: []
+                };
+
+                // geometries가 배열인 경우
+                if (Array.isArray(geometries)) {
+                    geojson.features = geometries.map((geometry, i) => ({
+                        type: 'Feature',
+                        properties: properties[i] || {},
+                        geometry: geometry
+                    }));
+                }
+                // geometries가 이미 GeoJSON인 경우
+                else if (geometries && geometries.type === 'FeatureCollection') {
+                    geojson.features = geometries.features;
+                    // properties 병합
+                    if (properties.length > 0) {
+                        geojson.features.forEach((feature, i) => {
+                            if (properties[i]) {
+                                feature.properties = { ...feature.properties, ...properties[i] };
+                            }
+                        });
+                    }
+                }
+                else {
+                    throw new Error(`예상치 못한 geometries 형식: ${typeof geometries}`);
+                }
+
+                console.log(`  ✓ GeoJSON 생성 완료: ${geojson.features.length} features`);
 
                 const count = loadGeoJSON(geojson, name, styleFunc);
                 console.log(`✅ ${name}: ${count} features 로드 완료!`);
