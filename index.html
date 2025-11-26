@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 <html lang="ko">
+<!--
+    서울 OSM 지도
+    Version: 2.0
+    Build: 2025-11-26 19:47 KST
+    Changes: 베이스맵 선택 기능 추가 (OpenStreetMap, 위성, 흑백, 다크모드, 없음)
+-->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>서울 OSM 지도 - 도로 및 건물</title>
+    <title>서울 OSM 지도 v2.0 - 도로 및 건물</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -157,6 +163,9 @@
 <body>
     <div class="info-panel">
         <h2>🗺️ 서울 OSM 지도</h2>
+        <div style="font-size: 11px; color: #7f8c8d; margin-bottom: 10px;">
+            v2.0 | 2025-11-26 19:47 KST
+        </div>
 
         <div class="layer-controls">
             <div class="layer-item">
@@ -205,6 +214,12 @@
         <div class="progress" style="display: none;">
             <div class="progress-bar" id="progress-bar"></div>
         </div>
+
+        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 10px; color: #95a5a6;">
+            <strong>Version 2.0</strong><br>
+            빌드: 2025-11-26 19:47 KST<br>
+            변경: 베이스맵 선택 기능 추가
+        </div>
     </div>
 
     <div id="map"></div>
@@ -215,6 +230,13 @@
     <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
 
     <script>
+        // 버전 정보
+        const VERSION = '2.0';
+        const BUILD_DATE = '2025-11-26 19:47 KST';
+        console.log(`%c서울 OSM 지도 v${VERSION}`, 'font-size: 16px; font-weight: bold; color: #3498db;');
+        console.log(`빌드: ${BUILD_DATE}`);
+        console.log('변경사항: 베이스맵 선택 기능 추가');
+
         // 지도 초기화
         const map = L.map('map').setView([37.5825, 126.819], 14);
 
