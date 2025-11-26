@@ -1,0 +1,89 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "공항대로",
+        "highway": "primary",
+        "lanes": "6"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [126.8015, 37.5585],
+          [126.8100, 37.5550],
+          [126.8200, 37.5500],
+          [126.8300, 37.5450]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "화곡로",
+        "highway": "secondary",
+        "lanes": "4"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [126.8350, 37.5400],
+          [126.8400, 37.5420],
+          [126.8500, 37.5450],
+          [126.8550, 37.5470]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "강서로",
+        "highway": "secondary",
+        "lanes": "4"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [126.8200, 37.5300],
+          [126.8250, 37.5350],
+          [126.8300, 37.5400],
+          [126.8350, 37.5450]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "양천로",
+        "highway": "primary",
+        "lanes": "6"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [126.8500, 37.5200],
+          [126.8550, 37.5250],
+          [126.8600, 37.5300],
+          [126.8650, 37.5350]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "오목로",
+        "highway": "tertiary",
+        "lanes": "2"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [126.8600, 37.5500],
+          [126.8620, 37.5520],
+          [126.8650, 37.5550]
+        ]
+      }
+    }
+  ]
+}

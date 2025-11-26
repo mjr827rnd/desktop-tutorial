@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>서울 강서구 도로 지도</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Malgun Gothic', sans-serif;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .info-panel h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .upload-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .upload-section input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: #3498db;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;
+            font-size: 13px;
+        }
+
+        .upload-btn:hover {
+            background: #2980b9;
+        }
+
+        .legend {
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 3px 0;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="info-panel">
+        <h2>🛣️ 서울 강서구 도로</h2>
+        <p>도로 데이터를 지도에 표시합니다</p>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e74c3c; height: 4px;"></div>
+                <span>주요 간선도로</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f39c12; height: 3px;"></div>
+                <span>보조 간선도로</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #95a5a6; height: 2px;"></div>
+                <span>일반 도로</span>
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <label for="geojson-upload" class="upload-btn">
+                📁 GeoJSON 업로드
+            </label>
+            <input type="file" id="geojson-upload" accept=".geojson,.json">
+            <p style="font-size: 11px; color: #999; margin-top: 5px;">
+                GeoJSON 파일을 선택하면 지도에 추가됩니다
+            </p>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // 지도 초기화 - 강서구 중심 좌표
+        const map = L.map('map').setView([37.5509, 126.8495], 13);
+
+        // OpenStreetMap 타일 레이어 추가
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // 도로 타입별 스타일 정의
+        function getRoadStyle(highway) {
+            const styles = {
+                'motorway': { color: '#e74c3c', weight: 5, opacity: 0.8 },
+                'trunk': { color: '#e74c3c', weight: 5, opacity: 0.8 },
+                'primary': { color: '#e74c3c', weight: 4, opacity: 0.8 },
+                'secondary': { color: '#f39c12', weight: 3, opacity: 0.7 },
+                'tertiary': { color: '#95a5a6', weight: 2, opacity: 0.6 },
+                'residential': { color: '#bdc3c7', weight: 2, opacity: 0.5 },
+                'default': { color: '#95a5a6', weight: 2, opacity: 0.5 }
+            };
+            return styles[highway] || styles['default'];
+        }
+
+        // GeoJSON 레이어 그룹
+        let roadsLayer = L.layerGroup().addTo(map);
+
+        // GeoJSON 데이터 로드 함수
+        function loadGeoJSON(geojsonData) {
+            // 기존 레이어 제거
+            roadsLayer.clearLayers();
+
+            // GeoJSON 레이어 추가
+            const layer = L.geoJSON(geojsonData, {
+                style: function(feature) {
+                    return getRoadStyle(feature.properties.highway);
+                },
+                onEachFeature: function(feature, layer) {
+                    if (feature.properties) {
+                        let popupContent = '<div style="font-size: 13px;">';
+                        if (feature.properties.name) {
+                            popupContent += `<strong>${feature.properties.name}</strong><br>`;
+                        }
+                        if (feature.properties.highway) {
+                            popupContent += `도로 종류: ${feature.properties.highway}<br>`;
+                        }
+                        if (feature.properties.lanes) {
+                            popupContent += `차선 수: ${feature.properties.lanes}`;
+                        }
+                        popupContent += '</div>';
+                        layer.bindPopup(popupContent);
+                    }
+                }
+            });
+
+            roadsLayer.addLayer(layer);
+
+            // 지도를 GeoJSON 범위에 맞춤
+            if (geojsonData.features && geojsonData.features.length > 0) {
+                map.fitBounds(layer.getBounds(), { padding: [50, 50] });
+            }
+        }
+
+        // 샘플 데이터 자동 로드
+        fetch('gangseo-roads-sample.geojson')
+            .then(response => response.json())
+            .then(data => {
+                loadGeoJSON(data);
+                console.log('강서구 샘플 도로 데이터 로드 완료');
+            })
+            .catch(error => {
+                console.log('샘플 데이터 로드 실패:', error);
+                console.log('파일 업로드를 통해 GeoJSON을 추가하세요');
+            });
+
+        // 파일 업로드 핸들러
+        document.getElementById('geojson-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const geojsonData = JSON.parse(event.target.result);
+                        loadGeoJSON(geojsonData);
+                        console.log('GeoJSON 파일 로드 완료:', file.name);
+                    } catch (error) {
+                        alert('GeoJSON 파일을 읽는 중 오류가 발생했습니다: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // 축척 컨트롤 추가
+        L.control.scale({
+            imperial: false,
+            metric: true
+        }).addTo(map);
+
+        console.log('서울 강서구 도로 지도가 로드되었습니다.');
+    </script>
+</body>
+</html>
